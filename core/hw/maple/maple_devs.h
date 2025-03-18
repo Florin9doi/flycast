@@ -31,8 +31,6 @@ enum MapleDeviceCommand
 	MDC_AllStatusReq    = 0x02, //7 words + device dependent ( seems to be 8 words)
 	MDC_DeviceReset     = 0x03, //0 words
 	MDC_DeviceKill      = 0x04, //0 words
-	MDC_DeviceStatus    = 0x05, //Same as MDC_DeviceRequest ?
-	MDC_DeviceAllStatus = 0x06, //Same as MDC_AllStatusReq ?
 
 	//Various Functions
 	MDCF_GetCondition   = 0x09, //FT
@@ -43,11 +41,16 @@ enum MapleDeviceCommand
 	MDCF_SetCondition   = 0x0E, //FT,data ...
 	MDCF_MICControl     = 0x0F, //FT,MIC data ...
 	MDCF_ARGunControl   = 0x10, //FT,AR-Gun data ...
+	MDCF_CamControl     = 0x11,
 
 	MDC_JVSUploadFirmware = 0x80, // JVS bridge firmware
 	MDC_JVSGetId		 = 0x82,
 	MDC_JVSSelfTest		 = 0x84,
 	MDC_JVSCommand		 = 0x86, // JVS I/O
+	
+	MDC_DreameyeGetMaxImg = 0x80,
+	MDC_DreameyeGetNumImg = 0x81,
+	MDC_DreameyeTransferCount = 0x83,
 };
 
 enum MapleDeviceRV

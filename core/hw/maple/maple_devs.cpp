@@ -136,7 +136,7 @@ struct maple_sega_controller: maple_base
 
 	u32 dma(u32 cmd) override
 	{
-		//printf("maple_sega_controller::dma Called 0x%X;Command %d\n", bus_id, cmd);
+		//INFO_LOG(MAPLE, "maple_sega_controller::dma Called 0x%X;Command %d\n", bus_id, cmd);
 		switch (cmd)
 		{
 		case MDC_DeviceRequest:
@@ -1677,6 +1677,408 @@ struct maple_densha_controller: maple_sega_controller
 	}
 };
 
+static u32 image_size = 0;
+static u8* image_data = nullptr;
+static u32 image_pos = 0;
+static u8 counter = 0;
+static u8 active_index = 0;
+
+//static u32 image_02_size = 0;
+//static u8* image_02 = nullptr;
+//static u32 image_03_size = 0;
+//static u8* image_03 = nullptr;
+
+typedef struct {
+	u32 size;
+	u8* data;
+} DreameyeImage_t;
+
+struct {
+	DreameyeImage_t image[33];
+	bool search_done = false;
+	u8 loaded_images = 0;
+	u8 active_index = 0;
+	u32 image_offset = 0;
+	u8 counter = 0;
+} static eyestate;
+
+struct maple_dreameye : maple_base
+{
+	void generate_sample(int width, int height) {
+		if (image_size != width * height * 3 / 2) {
+			if (image_data != nullptr) {
+				free(image_data);
+			}
+			image_size = width * height * 3 / 2;
+			image_data = (u8*) calloc(1, image_size);
+		}
+
+		u8 *ptr = image_data;
+		for (int line = 0 ; line < height; line++) {
+			for (int col = 0; col < width; col++) {
+				u8 r = col  * 255 / width;
+				u8 g = col  * 255 / width;
+				u8 b = line * 255 / height;
+
+				u8 y = (( 66 * r + 129 * g +  25 * b + 128) / 256) +  16;
+				u8 u = ((-38 * r -  74 * g + 112 * b + 128) / 256) + 128;
+				u8 v = ((112 * r -  94 * g -  18 * b + 128) / 256) + 128;
+
+				if (line % 2 == 0) {
+					*ptr++ = y;
+				} else {
+					*ptr++ = y;
+					*ptr++ = (col % 2 == 0) ? u : v;
+				}
+			}
+		}
+	}
+
+	void load_images() {
+		if (eyestate.search_done) {
+			return;
+		}
+
+		for (int i = 2; i < 33; i++) {
+			char name[255];
+			snprintf(name, 255, "data/dreameye/%02d.jpg", i);
+			FILE *file = fopen(name, "rb");
+			if (!file) {
+				INFO_LOG(MAPLE, "Dreameye: %s failed", name);
+				break;
+			}
+			fseek(file, 0, SEEK_END);
+			eyestate.image[i].size = ftell(file);
+			eyestate.image[i].data = (u8*) calloc(1, eyestate.image[i].size);
+			rewind(file);
+			fread(eyestate.image[i].data, 1, eyestate.image[i].size, file);
+			fclose(file);
+			file = nullptr;
+			INFO_LOG(MAPLE, "Dreameye: %s loaded", name);
+			eyestate.loaded_images++;
+		}
+		eyestate.search_done = true;
+	}
+
+	void reset_camera_pos() {
+		image_pos = 0;
+		counter = 0;
+	}
+
+	MapleDeviceType get_device_type() override {
+		return MDT_Dreameye;
+	}
+
+	void serialize(Serializer& ser) const override {}
+	void deserialize(Deserializer& deser) override {}
+	void OnSetup() override {
+		INFO_LOG(MAPLE, "Dreameye: OnSetup");
+		reset_camera_pos();
+		load_images();
+		generate_sample(160, 120);
+	}
+	
+	virtual u32 get_type() {
+		return MFID_0_Input;
+	}
+	virtual u32 get_capabilities() {
+		return MFID_11_Camera;
+	}
+	virtual const char *get_device_name() {
+		return maple_sega_dreameye_name_1;
+	}
+	virtual u32 get_device_current(int get_max_current) {
+		return get_max_current ? 0x0960 : 0x07D0; // Max. 240 mA, standby: 200 mA
+	}
+
+	void get_condition(u8 dev, u8 reg, u16 unk) {
+		switch (dev) {
+		case MDC_DreameyeGetMaxImg:
+			INFO_LOG(MAPLE, "Dreameye: GetCondition: %02x/%02x/%04x (MDC_DreameyeGetMaxImg)", dev, reg, unk);
+			w8(dev);
+			w8(reg);
+			w8(0);
+			w8(31);
+			break;
+		case MDC_DreameyeGetNumImg:
+			INFO_LOG(MAPLE, "Dreameye: GetCondition: %02x/%02x/%04x (MDC_DreameyeGetNumImg)", dev, reg, unk);
+			w8(dev);
+			w8(reg);
+			w8(0);
+			w8(eyestate.loaded_images);
+			break;
+		case MDC_DreameyeTransferCount:
+			INFO_LOG(MAPLE, "Dreameye: GetCondition: %02x/%02x/%04x (MDC_DreameyeTransferCount)", dev, reg, unk);
+			if (reg >= 2 && reg < 33) {
+				w8(dev);
+				w8(reg);
+				w8(0);
+				w8((eyestate.image[reg].size + 511) / 512);
+			} else {
+				w8(dev);
+				w8(reg);
+				w8(0);
+				w8(0);
+			}
+			break;
+
+		default:
+			INFO_LOG(MAPLE, "Dreameye: GetCondition: %02x/%02x/%04x (Unk)", dev, reg, unk);
+		}
+	}
+
+	void set_condition(u8 dev, u8 reg, u16 val) {
+		switch (dev) {
+		case 0x00:
+			INFO_LOG(MAPLE, "Dreameye: SetCondition: %02x/%02x/%04x (CIS)", dev, reg, val);
+			break;
+
+		case 0x10:
+			INFO_LOG(MAPLE, "Dreameye: SetCondition: %02x/%02x/%04x (ISP)", dev, reg, val);
+			if (reg == 0x80) {
+				INFO_LOG(MAPLE, "Dreameye: Resolution = %02x", reg);
+			}
+			if (reg == 0xa0 && val > 0) {
+				reset_camera_pos();
+			}
+			break;
+
+		case 0x20:
+			INFO_LOG(MAPLE, "Dreameye: SetCondition: %02x/%02x/%04x (JangGu)", dev, reg, val);
+			break;
+
+		case 0x90:
+			INFO_LOG(MAPLE, "Dreameye: SetCondition: %02x/%02x/%04x (Hw)", dev, reg, val);
+			break;
+
+		default:
+			INFO_LOG(MAPLE, "Dreameye: SetCondition: %02x/%02x/%04x (Unk)", dev, reg, val);
+		}
+	}
+
+	u32 dma(u32 cmd) override
+	{
+		switch (cmd)
+		{
+		case MDC_DeviceRequest:
+		case MDC_AllStatusReq:
+		{
+			// Caps (4)
+			w32(get_type());
+			// Struct data (3*4)
+			w32(get_capabilities());
+			w32(0);
+			w32(0);
+			// Area code (1)
+			w8(0xFF);
+			// Direction (1)
+			w8(0);
+			// Product name (30)
+			wstr(get_device_name(), 30);
+			// License (60)
+			wstr(maple_sega_brand, 60);
+			// Low-consumption standby current (2)
+			w16(get_device_current(0));
+			// Maximum current consumption (2)
+			w16(get_device_current(1));
+
+			if (cmd == MDC_DeviceRequest)
+			{
+				return MDRS_DeviceStatus;
+			} else {
+				const char *extra = "Version 1.000,2000/02/25,315-6283       1.00";
+				wptr(extra, strlen(extra));
+				return MDRS_DeviceStatusAll;
+			}
+		}
+
+		case MDC_DeviceReset:
+		case MDC_DeviceKill:
+			return MDRS_DeviceReply;
+
+		case MDCF_GetCondition:
+		{
+			u32 function = r32();
+			switch (function)
+			{
+			case MFID_0_Input:
+			{
+				//INFO_LOG(MAPLE, "Dreameye: GetCondition: %08x", function);
+				w32(MFID_0_Input);
+				// TODO:
+				w16(0xf7ff);
+
+				//6 analog (not used)
+				w16(0x0000);
+				w32(0x80808080);
+				return MDRS_DataTransfer;
+			}
+
+			case MFID_11_Camera:
+			{
+				u32 count = r_count() / 4;
+				w32(MFID_11_Camera);
+				w32(0xD0);
+				while (count--) {
+					u8 dev = r8();
+					u8 reg = r8();
+					u16 unk = r16();
+					get_condition(dev, reg, unk);
+				}
+				return MDRS_DataTransfer;
+			}
+				
+			default:
+				INFO_LOG(MAPLE, "Dreameye: GetCondition: Unknown function:0x%x", function);
+				return MDRE_UnknownFunction;
+			}
+		}
+
+		case MDCF_SetCondition:
+		{
+			u32 function = r32();
+			switch (function)
+			{
+			case MFID_11_Camera:
+			{
+				u32 count = r_count() / 4;
+				while (count--) {
+					u8 dev = r8();
+					u8 reg = r8();
+					u16 val = r16();
+					set_condition(dev, reg, val);
+				}
+				return MDRS_DeviceReply;
+			}
+
+			default:
+				INFO_LOG(MAPLE, "Dreameye: SetCondition: Unknown function:0x%x", function);
+				return MDRE_UnknownFunction;
+			}
+		}
+
+		case MDCF_CamControl:
+		{
+			u32 function = r32();
+			if (function != MFID_11_Camera) {
+				INFO_LOG(MAPLE, "Dreameye: CamControl: Unknown function:0x%x", function);
+				return MDRE_UnknownFunction;
+			}
+
+			u8 scmd = r8();
+			u8 index = r8();
+			u16 unk1 = r8();
+			u16 unk2 = r8();
+			INFO_LOG(MAPLE, "Dreameye: CamControl: %08x/cmd=%02x/idx=%02x/unk1=%02x/unk2=%02x", function, scmd, index, unk1, unk2);
+
+			if (scmd == 0x04 && index < 2) { // streaming
+				if (active_index != index) {
+					active_index = index;
+					reset_camera_pos();
+				}
+				w32(MFID_11_Camera);
+				
+				// header
+				u32 chunk = std::min(956u, image_size - image_pos);
+				u8 header = ((image_pos == 0) << 7);
+				header |= (((image_pos + chunk) >= image_size) << 6);
+				w8(header);
+				w8(counter);
+
+				// null data
+				w16(0);
+				w32(0);
+
+				u16 pixels = chunk / 3 * 2;
+				u16 bits = 8 * chunk / 2;
+				w8(header | (pixels >> 8));
+				w8(pixels & 0xff);
+				w8(bits >> 8);
+				w8(bits & 0xff);
+				
+				INFO_LOG(MAPLE, "Dreameye: CamControl: image_pos=0x%x, chunk=0x%x, header=0x%x, counter=0x%x px=0x%x, bts=0x%x",
+					image_pos, chunk, header, counter, pixels, bits);
+
+				wptr(image_data + image_pos, chunk);
+
+				image_pos += chunk;
+				counter++;
+
+				return MDRS_DataTransfer;
+
+			} else { // offline pics
+				if (active_index != index) {
+					active_index = index;
+					reset_camera_pos();
+					if (index >= 2 && index < 33) {
+						INFO_LOG(MAPLE, "Dreameye: CamControl: image_data = image_%02d", index);
+						image_size = eyestate.image[index].size;
+						image_data = eyestate.image[index].data;
+					}
+				}
+				if (unk1 & 0x80) {
+					image_pos = 512 * unk2;
+					counter = 0;
+				}
+
+				w32(MFID_11_Camera);
+				
+				// header
+				u32 chunk = std::min(512u, image_size - image_pos);
+				u8 header = ((image_pos == 0) << 7);
+				header |= (((image_pos + chunk) >= image_size) << 6);
+				w8(header);
+				w8(counter);
+
+				// null data
+				w16(0);
+				w32(0);
+				
+				INFO_LOG(MAPLE, "Dreameye: CamControl: image_pos=0x%x, chunk=0x%x, header=0x%x, counter=0x%x",
+					image_pos, chunk, header, counter);
+
+				wptr(image_data + image_pos, chunk);
+
+				image_pos += chunk;
+				counter++;
+
+				while ((dma_count_out[0] % 4) != 0) {
+					w8(0);
+				}
+
+				return MDRS_DataTransfer;
+			}
+
+			INFO_LOG(MAPLE, "Dreameye: CamControl: Error: DeviceReply");
+			return MDRS_DeviceReply;
+		}
+
+		default:
+			INFO_LOG(MAPLE, "Dreameye: Unknown cmd:0x%x", cmd);
+			return MDRE_UnknownCmd;
+		}
+	}
+};
+
+struct maple_dreameye_ext : maple_dreameye
+{
+	u32 get_type() override {
+		return MFID_11_Camera;
+	}
+
+	u32 get_capabilities() override {
+		return 0x30a800c0;
+	}
+
+	const char *get_device_name() override {
+		return maple_sega_dreameye_name_2;
+	}
+
+	u32 get_device_current(int get_max_current) override {
+		return 0;
+	}
+};
+
 struct FullController : maple_sega_controller
 {
 	u32 get_capabilities() override
@@ -1884,6 +2286,8 @@ std::shared_ptr<maple_device> maple_Create(MapleDeviceType type)
 	case MDT_PopnMusicController:	return std::make_shared<maple_popnmusic_controller>();
 	case MDT_RacingController:	return std::make_shared<maple_racing_controller>();
 	case MDT_DenshaDeGoController:	return std::make_shared<maple_densha_controller>();
+	case MDT_Dreameye:			return std::make_shared<maple_dreameye>();
+	case MDT_DreameyeExt:		return std::make_shared<maple_dreameye_ext>();
 	case MDT_SegaControllerXL:	return std::make_shared<FullController>();
 	case MDT_DreamParaParaController:	return std::make_shared<maple_dreamparapara_controller>();
 	case MDT_RFIDReaderWriter:	return RFIDReaderWriter::Create();

@@ -405,7 +405,6 @@ static void createDreamcastDevices()
 		case MDT_FishingController:
 		case MDT_PopnMusicController:
 		case MDT_DenshaDeGoController:
-		case MDT_Dreameye:
 		case MDT_DreamParaParaController:
 			mcfg_Create(config::MapleMainDevices[bus], bus, 5);
 			if (config::MapleMainDevices[bus] == MDT_FishingController)
@@ -420,6 +419,15 @@ static void createDreamcastDevices()
 			mcfg_Create(config::MapleMainDevices[bus], bus, 5);
 			if (config::MapleExpansionDevices[bus][0] != MDT_None)
 				mcfg_Create(config::MapleExpansionDevices[bus][0], bus, 0);
+			break;
+
+		case MDT_Dreameye:
+			mcfg_Create(config::MapleMainDevices[bus], bus, 5);
+			mcfg_Create(MDT_DreameyeExt, bus, 0);
+			mcfg_Create(MDT_DreameyeExt, bus, 1);
+			mcfg_Create(MDT_DreameyeExt, bus, 2);
+			mcfg_Create(MDT_DreameyeExt, bus, 3);
+			mcfg_Create(MDT_DreameyeExt, bus, 4);
 			break;
 
 		case MDT_None:

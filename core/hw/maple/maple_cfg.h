@@ -26,6 +26,7 @@ enum MapleDeviceType
 	MDT_SegaControllerXL        = 18,
 	MDT_DreamParaParaController = 19,
 	MDT_WccfCamera				= 20,
+	MDT_DreameyeExt             = 21,
 	MDT_Count
 };
 
@@ -130,6 +131,8 @@ constexpr int maple_getPortCount(MapleDeviceType type, MaplePortType port)
 	{
 		case MDT_FishingController:
 			return port == MaplePortType::user_accessible ? 0 : 1;
+		case MDT_Dreameye:
+			return port == MaplePortType::user_accessible ? 0 : 5;
 		case MDT_SegaController:
 		case MDT_SegaControllerXL:
 			return 2;

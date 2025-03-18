@@ -54,7 +54,7 @@ static constexpr const char *maple_device_types_src[] =
 	Tnop("Densha de Go! Controller"),
 	Tnop("Panther DC/Full Controller"),
 	Tnop("DreamParaPara Controller"),
-//	Tnop("Dreameye"),
+	Tnop("Dreameye"),
 };
 static const char *maple_device_types[std::size(maple_device_types_src)];
 
@@ -101,7 +101,7 @@ static const char *maple_device_name(MapleDeviceType type)
 	case MDT_DreamParaParaController:
 		return maple_device_types[13];
 	case MDT_Dreameye:
-//		return maple_device_types[14];
+		return maple_device_types[14];
 	case MDT_None:
 	default:
 		return maple_device_types[0];

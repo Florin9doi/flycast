@@ -239,6 +239,7 @@ static void setMapleType(int bus, int type, lua_State *L)
 	case MDT_DenshaDeGoController:
 	case MDT_SegaControllerXL:
 	case MDT_DreamParaParaController:
+	case MDT_Dreameye:
 	case MDT_None:
 		config::MapleMainDevices[bus - 1] = (MapleDeviceType)type;
 		maple_ReconnectDevices();
