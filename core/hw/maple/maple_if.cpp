@@ -139,7 +139,7 @@ static void maple_DoDma()
 	verify(SB_MDEN & 1);
 	verify(SB_MDST & 1);
 
-	DEBUG_LOG(MAPLE, "Maple: DoMapleDma SB_MDSTAR=%x", SB_MDSTAR);
+	//DEBUG_LOG(MAPLE, "Maple: DoMapleDma SB_MDSTAR=%x", SB_MDSTAR);
 	u32 addr = SB_MDSTAR;
 #ifdef STRICT_MODE
 	if (!check_mdapro(addr))
