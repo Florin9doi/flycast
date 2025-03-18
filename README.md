@@ -85,7 +85,7 @@ Double-click the bootstrap script:
 - **Graphics API**: Vulkan, OpenGL
 
 #### Build
-
+* Install `DirectX SDK (June 2010)`: https://www.microsoft.com/en-us/download/details.aspx?id=6812
 ```
 $ git clone --recursive https://github.com/flyinghead/flycast.git
 $ cd flycast
