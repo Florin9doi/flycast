@@ -755,6 +755,8 @@ static void gd_process_spi_cmd()
 				sector_type = 2340;
 			else if (readcmd.other == 1 || readcmd.expdtype == 1) // Expected Data Type: CD-DA
 				sector_type = 2352;
+			else if (readcmd.head == 0 && readcmd.subh == 0 && readcmd.data == 1 && readcmd.expdtype == 5 && readcmd.other == 0)
+				sector_type = 2324;
 			else if (readcmd.head == 1 || readcmd.subh == 1 || readcmd.other == 1 || readcmd.data == 0)
 				WARN_LOG(GDROM, "GDROM: *FIXME* ADD MORE CD READ SETTINGS head %d subh %d other %d data %d type %d",
 						readcmd.head, readcmd.subh, readcmd.other, readcmd.data, readcmd.expdtype);
@@ -1246,7 +1248,7 @@ static int GDRomschd(int tag, int cycles, int jitter, void *arg)
 	u32 src = SB_GDSTARD;
 	u32 len = (SB_GDLEN == 0 ? 0x02000000 : SB_GDLEN) - SB_GDLEND;
 	
-	if(SB_GDLEN & 0x1F) 
+	if(SB_GDLEN & 0x03)
 	{
 		die("\n!\tGDROM: SB_GDLEN has invalid size !\n");
 		return 0;

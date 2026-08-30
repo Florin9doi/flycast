@@ -52,6 +52,10 @@ static bool convertSector(u8* in_buff , u8* out_buff , int from , int to,int sec
 		verify(from == 2352);
 		memcpy(out_buff, &in_buff[12], 2340);
 		break;
+	case 2324:
+		verify(from == 2352);
+		memcpy(out_buff, &in_buff[24], 2324);
+		break;
 	case 2328:
 		verify(from == 2352);
 		memcpy(out_buff, &in_buff[24], 2328);
