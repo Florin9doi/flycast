@@ -406,6 +406,7 @@ static void createDreamcastDevices()
 		case MDT_PopnMusicController:
 		case MDT_DenshaDeGoController:
 		case MDT_DreamParaParaController:
+		case MDT_DreamMovieRemote:
 			mcfg_Create(config::MapleMainDevices[bus], bus, 5);
 			if (config::MapleMainDevices[bus] == MDT_FishingController)
 				// integrated vibration pack

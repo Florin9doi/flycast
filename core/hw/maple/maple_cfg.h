@@ -27,6 +27,7 @@ enum MapleDeviceType
 	MDT_DreamParaParaController = 19,
 	MDT_WccfCamera				= 20,
 	MDT_DreameyeExt             = 21,
+	MDT_DreamMovieRemote        = 22,
 	MDT_Count
 };
 

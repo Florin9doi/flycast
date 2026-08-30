@@ -55,6 +55,7 @@ static constexpr const char *maple_device_types_src[] =
 	Tnop("Panther DC/Full Controller"),
 	Tnop("DreamParaPara Controller"),
 	Tnop("Dreameye"),
+	Tnop("DreamMovie Remote"),
 };
 static const char *maple_device_types[std::size(maple_device_types_src)];
 
@@ -102,6 +103,8 @@ static const char *maple_device_name(MapleDeviceType type)
 		return maple_device_types[13];
 	case MDT_Dreameye:
 		return maple_device_types[14];
+	case MDT_DreamMovieRemote:
+		return maple_device_types[15];
 	case MDT_None:
 	default:
 		return maple_device_types[0];
@@ -140,6 +143,8 @@ static MapleDeviceType maple_device_type_from_index(int idx)
 		return MDT_DreamParaParaController;
 	case 14:
 		return MDT_Dreameye;
+	case 15:
+		return MDT_DreamMovieRemote;
 	case 0:
 	default:
 		return MDT_None;

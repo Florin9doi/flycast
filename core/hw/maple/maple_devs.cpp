@@ -2153,9 +2153,14 @@ struct maple_dreamparapara_controller : maple_device
 		return MDT_DreamParaParaController;
 	}
 
-	u16 get_state()
+	virtual u32 get_device_id()
 	{
-		u16 state = 0;
+		return 0x80888888;
+	}
+
+	virtual u32 get_state()
+	{
+		u32 state = 0;
 		PlainJoystickState pjs;
 		config->GetInput(&pjs);
 		if (pjs.kcode & DC_BTN_START)  state |= START;
@@ -2176,13 +2181,13 @@ struct maple_dreamparapara_controller : maple_device
 
 		if (buffer_in[0] == 0x08000000)
 		{
-			*buffer_out++ = 0x80888888;
+			*buffer_out++ = get_device_id();
 			strncpy((char*)buffer_out, "Flycast DreamParaPara", 24); // official name unknown
 			outlen = 4 + 24;
 		}
 		else
 		{
-			u16 state = ~get_state();
+			u32 state = ~get_state();
 			u8 method = (unshift(buffer_in[0]) >> 11) & 3;
 			u8 val14 = unshift(buffer_in[0]) & 0xff;
 			u16 val18 = unshift(buffer_in[1]);
@@ -2259,6 +2264,91 @@ struct maple_dreamparapara_controller : maple_device
 	}
 };
 
+struct maple_dreammovie_remote : maple_dreamparapara_controller
+{
+	union DMR_state {
+		u32 raw;
+		struct {
+			// The software supports two different remote control systems:
+			// - First method (byte0) has multiple actions combined on a button and an extended menu for the features without physical buttons
+			//              (up/exit)             (menu with pbc/mute/pan/rew/ff)
+			//       (left/play) (right/stereo)   (prev?) (next?)
+			//              (down/vol)
+			// - Second method (byte1+2) has dedicated buttons and a simpler menu
+			//               (up)            (menu) (pbc) (stereo) (mute)
+			//       (left) (exit) (right)   (prev) (play/pause) (next)
+			//              (down)           (rew) (ff)
+			u32 dpad_right__stereo : 1;
+			u32 menu_ext : 1; // extended menu, it only works with the first set of dpad buttons
+			u32 dpad_up__exit : 1; // file list (aka: video / enter)
+			u32 dpad_left__play_pause : 1;
+			u32 dpad_down__volume : 1;
+			u32 : 1;
+			u32 : 1;
+			u32 : 1;
+
+			u32 : 1;
+			u32 rewind : 1;
+			u32 play_pause : 1;
+			u32 forward : 1;
+			u32 : 1;
+			u32 prev : 1;
+			u32 exit : 1; // file list (aka: video / enter)
+			u32 next : 1;
+
+			u32 menu : 1; // simple menu, it only works with the second set of dpad buttons
+			u32 stereo : 1;
+			u32 pbc : 1;
+			u32 mute : 1;
+			u32 dpad_down : 1;
+			u32 dpad_left : 1;
+			u32 dpad_up : 1;
+			u32 dpad_right : 1;
+
+			u32 : 8;
+		};
+	};
+
+	MapleDeviceType get_device_type() override
+	{
+		return MDT_DreamMovieRemote;
+	}
+
+	u32 get_device_id() override
+	{
+		return 0x20888888;
+	}
+
+	u32 get_state() override
+	{
+		union DMR_state state = {0};
+		PlainJoystickState pjs;
+		config->GetInput(&pjs);
+		state.dpad_up    = !!(pjs.kcode & DC_DPAD_UP);
+		state.dpad_down  = !!(pjs.kcode & DC_DPAD_DOWN);
+		state.dpad_left  = !!(pjs.kcode & DC_DPAD_LEFT);
+		state.dpad_right = !!(pjs.kcode & DC_DPAD_RIGHT);
+		state.exit       = !!(pjs.kcode & DC_BTN_START);
+		state.play_pause = !!(pjs.kcode & DC_BTN_A);
+		state.mute       = !!(pjs.kcode & DC_BTN_B);
+		state.pbc        = !!(pjs.kcode & DC_BTN_C);
+		state.stereo     = !!(pjs.kcode & DC_BTN_X);
+		state.menu       = !!(pjs.kcode & DC_BTN_Y);
+		state.prev       = (pjs.trigger[PJTI_L] > 0x40);
+		state.next       = (pjs.trigger[PJTI_R] > 0x40);
+		state.rewind     = (pjs.joy[PJAI_X1] < 0x40);
+		state.forward    = (pjs.joy[PJAI_X1] > 0xc0);
+
+		state.dpad_up__exit         = !!(pjs.kcode & DC_DPAD2_UP);
+		state.dpad_down__volume     = !!(pjs.kcode & DC_DPAD2_DOWN);
+		state.dpad_left__play_pause = !!(pjs.kcode & DC_DPAD2_LEFT);
+		state.dpad_right__stereo    = !!(pjs.kcode & DC_DPAD2_RIGHT);
+		state.menu_ext              = !!(pjs.kcode & DC_BTN_D);
+
+		return state.raw;
+	}
+};
+
 std::shared_ptr<maple_device> maple_Create(MapleDeviceType type)
 {
 	switch(type)
@@ -2290,6 +2380,7 @@ std::shared_ptr<maple_device> maple_Create(MapleDeviceType type)
 	case MDT_DreameyeExt:		return std::make_shared<maple_dreameye_ext>();
 	case MDT_SegaControllerXL:	return std::make_shared<FullController>();
 	case MDT_DreamParaParaController:	return std::make_shared<maple_dreamparapara_controller>();
+	case MDT_DreamMovieRemote:	return std::make_shared<maple_dreammovie_remote>();
 	case MDT_RFIDReaderWriter:	return RFIDReaderWriter::Create();
 	case MDT_WccfCamera:		return WccfCamera::Create();
 
